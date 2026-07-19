@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-mysql-backups
+  labels:
+    grafana_dashboard: "1"
+data:
+  mysql-backups.json: |
+    {
+      "title": "MySQL Backups",
+      "uid": "mysql-backups",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "1m",
+      "time": {"from": "now-6h", "to": "now"},
+      "panels": [
+        {
+          "type": "stat",
+          "title": "Minutes since last successful backup",
+          "gridPos": {"x": 0, "y": 0, "w": 8, "h": 6},
+          "fieldConfig": {"defaults": {"unit": "m", "thresholds": {"steps": [
+            {"color": "green", "value": null},
+            {"color": "orange", "value": 10},
+            {"color": "red", "value": 20}
+          ]}}},
+          "targets": [{"expr": "(time() - kube_cronjob_status_last_successful_time{cronjob=\"mysql-backup\", namespace=\"database\"}) / 60"}]
+        },
+        {
+          "type": "stat",
+          "title": "Succeeded jobs in history",
+          "gridPos": {"x": 8, "y": 0, "w": 8, "h": 6},
+          "targets": [{"expr": "sum(kube_job_status_succeeded{namespace=\"database\", job_name=~\"mysql-backup.*\"})"}]
+        },
+        {
+          "type": "stat",
+          "title": "Failed jobs in history",
+          "gridPos": {"x": 16, "y": 0, "w": 8, "h": 6},
+          "fieldConfig": {"defaults": {"thresholds": {"steps": [
+            {"color": "green", "value": null},
+            {"color": "red", "value": 1}
+          ]}}},
+          "targets": [{"expr": "sum(kube_job_status_failed{namespace=\"database\", job_name=~\"mysql-backup.*\"}) or vector(0)"}]
+        },
+        {
+          "type": "timeseries",
+          "title": "Backup duration, seconds",
+          "gridPos": {"x": 0, "y": 6, "w": 24, "h": 8},
+          "fieldConfig": {"defaults": {"unit": "s"}},
+          "targets": [{"expr": "kube_job_status_completion_time{namespace=\"database\", job_name=~\"mysql-backup.*\"} - on(job_name) kube_job_status_start_time{namespace=\"database\", job_name=~\"mysql-backup.*\"}"}]
+        }
+      ]
+    }

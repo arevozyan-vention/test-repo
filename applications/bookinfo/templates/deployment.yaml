@@ -1,0 +1,77 @@
+{{- range $name, $svc := .Values.services }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  labels:
+    app: {{ $name }}
+    {{- include "bookinfo.labels" $ | nindent 4 }}
+spec:
+  replicas: {{ $svc.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}
+        {{- include "bookinfo.labels" $ | nindent 8 }}
+    spec:
+      serviceAccountName: bookinfo-{{ $name }}
+      containers:
+        - name: {{ $name }}
+          image: "{{ $.Values.image.hub }}/{{ $svc.image }}:{{ $svc.tag | default $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          ports:
+            - containerPort: {{ $svc.port }}
+          {{- if or $svc.env $svc.database }}
+          env:
+            {{- range $k, $v := $svc.env }}
+            - name: {{ $k }}
+              value: {{ $v | quote }}
+            {{- end }}
+            {{- if $svc.database }}
+            - name: MYSQL_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $.Values.database.existingSecret }}
+                  key: {{ $.Values.database.passwordKey }}
+            {{- end }}
+          {{- end }}
+          {{- if $svc.database }}
+          envFrom:
+            - configMapRef:
+                name: bookinfo-db
+          {{- end }}
+          {{- with $svc.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          readinessProbe:
+            tcpSocket:
+              port: {{ $svc.port }}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          # tcp on purpose: liveness should mean "process alive", not "dependencies healthy"
+          livenessProbe:
+            tcpSocket:
+              port: {{ $svc.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            failureThreshold: 3
+          {{- with $svc.emptyDirs }}
+          volumeMounts:
+            {{- range . }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+            {{- end }}
+          {{- end }}
+      {{- with $svc.emptyDirs }}
+      volumes:
+        {{- range . }}
+        - name: {{ .name }}
+          emptyDir: {}
+        {{- end }}
+      {{- end }}
+{{- end }}

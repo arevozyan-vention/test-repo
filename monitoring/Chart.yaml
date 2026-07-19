@@ -1,0 +1,22 @@
+apiVersion: v2
+name: monitoring
+description: Observability stack - prometheus, grafana, loki, tempo, beyla
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+dependencies:
+  - name: kube-prometheus-stack
+    version: 87.17.0
+    repository: https://prometheus-community.github.io/helm-charts
+  - name: loki
+    version: 7.1.0
+    repository: https://grafana.github.io/helm-charts
+  - name: alloy
+    version: 1.10.1
+    repository: https://grafana.github.io/helm-charts
+  - name: tempo
+    version: 1.24.4
+    repository: https://grafana.github.io/helm-charts
+  - name: beyla
+    version: 1.16.10
+    repository: https://grafana.github.io/helm-charts

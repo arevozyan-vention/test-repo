@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-bookinfo-traces
+  labels:
+    grafana_dashboard: "1"
+data:
+  bookinfo-traces.json: |
+    {
+      "title": "Bookinfo Traces (tempo)",
+      "uid": "bookinfo-traces",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {"from": "now-1h", "to": "now"},
+      "panels": [
+        {
+          "type": "table",
+          "title": "Recent traces (bookinfo)",
+          "gridPos": {"x": 0, "y": 0, "w": 24, "h": 10},
+          "datasource": {"type": "tempo", "uid": "tempo"},
+          "targets": [{
+            "queryType": "traceql",
+            "query": "{resource.k8s.namespace.name=\"bookinfo\"}",
+            "limit": 20,
+            "tableType": "traces"
+          }]
+        },
+        {
+          "type": "timeseries",
+          "title": "Spans ingested by tempo / sec",
+          "gridPos": {"x": 0, "y": 10, "w": 24, "h": 7},
+          "targets": [{"expr": "sum(rate(tempo_distributor_spans_received_total[5m]))"}]
+        }
+      ]
+    }

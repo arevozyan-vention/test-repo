@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mysql-backup
+  namespace: {{ .Release.Namespace }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 240
+      template:
+        spec:
+          restartPolicy: OnFailure
+          initContainers:
+            - name: wait-for-mysql
+              image: {{ .Values.backup.image }}
+              command:
+                - /bin/sh
+                - -c
+                - until mysqladmin ping -h mysql --silent; do sleep 5; done
+          containers:
+            - name: mysqldump
+              image: {{ .Values.backup.image }}
+              env:
+                - name: MYSQL_PWD
+                  valueFrom:
+                    secretKeyRef:
+                      name: mysql-credentials
+                      key: mysql-root-password
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  ts=$(date +%Y%m%d-%H%M%S)
+                  tmp=/backups/.tmp-$ts.sql
+                  mysqldump --single-transaction -h mysql -u root {{ .Values.backup.database }} > "$tmp"
+                  mv "$tmp" /backups/{{ .Values.backup.database }}-$ts.sql
+                  # rotate only after a successful dump
+                  ls -1t /backups/{{ .Values.backup.database }}-*.sql | tail -n +{{ add .Values.backup.keep 1 }} | xargs -r rm -f
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: mysql-backups

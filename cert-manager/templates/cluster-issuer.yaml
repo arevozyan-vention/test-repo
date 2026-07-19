@@ -1,0 +1,8 @@
+# signs ingress certs with the mkcert CA, secret is created by "task certs"
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: local-ca
+spec:
+  ca:
+    secretName: local-ca

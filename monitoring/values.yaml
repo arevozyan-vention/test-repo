@@ -1,0 +1,152 @@
+kube-prometheus-stack:
+  grafana:
+    fullnameOverride: grafana
+    admin:
+      existingSecret: grafana-admin
+    ingress:
+      enabled: true
+      ingressClassName: traefik
+      annotations:
+        cert-manager.io/cluster-issuer: local-ca
+      hosts:
+        - grafana.localhost
+      tls:
+        - hosts:
+            - grafana.localhost
+          secretName: grafana-tls
+    additionalDataSources:
+      - name: Loki
+        type: loki
+        uid: loki
+        url: http://loki:3100
+        access: proxy
+      - name: Tempo
+        type: tempo
+        uid: tempo
+        url: http://tempo:3200
+        access: proxy
+    dashboardProviders:
+      dashboardproviders.yaml:
+        apiVersion: 1
+        providers:
+          - name: imported
+            folder: Imported
+            type: file
+            options:
+              path: /var/lib/grafana/dashboards/imported
+    dashboards:
+      imported:
+        mysql:
+          gnetId: 14057
+          revision: 1
+          datasource: Prometheus
+  prometheus:
+    prometheusSpec:
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+      retention: 2d
+
+loki:
+  fullnameOverride: loki
+  deploymentMode: SingleBinary
+  loki:
+    auth_enabled: false
+    commonConfig:
+      replication_factor: 1
+    storage:
+      type: filesystem
+    schemaConfig:
+      configs:
+        - from: "2024-01-01"
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: index_
+            period: 24h
+  singleBinary:
+    replicas: 1
+    persistence:
+      size: 5Gi
+  read:
+    replicas: 0
+  write:
+    replicas: 0
+  backend:
+    replicas: 0
+  gateway:
+    enabled: false
+  chunksCache:
+    enabled: false
+  resultsCache:
+    enabled: false
+  lokiCanary:
+    enabled: false
+  test:
+    enabled: false
+
+alloy:
+  fullnameOverride: alloy
+  alloy:
+    configMap:
+      content: |
+        discovery.kubernetes "pods" {
+          role = "pod"
+        }
+        discovery.relabel "pods" {
+          targets = discovery.kubernetes.pods.targets
+          rule {
+            source_labels = ["__meta_kubernetes_namespace"]
+            target_label  = "namespace"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_name"]
+            target_label  = "pod"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_container_name"]
+            target_label  = "container"
+          }
+          rule {
+            source_labels = ["__meta_kubernetes_pod_label_app"]
+            target_label  = "app"
+          }
+        }
+        loki.source.kubernetes "pods" {
+          targets    = discovery.relabel.pods.output
+          forward_to = [loki.write.default.receiver]
+        }
+        loki.write "default" {
+          endpoint {
+            url = "http://loki:3100/loki/api/v1/push"
+          }
+        }
+
+tempo:
+  fullnameOverride: tempo
+  persistence:
+    enabled: true
+    size: 3Gi
+
+beyla:
+  fullnameOverride: beyla
+  service:
+    enabled: true
+  serviceMonitor:
+    enabled: true
+  config:
+    data:
+      attributes:
+        kubernetes:
+          enable: true
+      discovery:
+        services:
+          - k8s_namespace: bookinfo
+      routes:
+        unmatched: heuristic
+      otel_traces_export:
+        endpoint: http://tempo.monitoring.svc.cluster.local:4318
+      prometheus_export:
+        port: 9090
+        path: /metrics

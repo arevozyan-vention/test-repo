@@ -1,0 +1,4 @@
+**/charts/*.tgz
+.terraform/
+*.tfstate
+*.tfstate.backup
