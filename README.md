@@ -19,6 +19,8 @@ Credentials are unique per installation - **not a single secret is stored in git
 
 Verified end to end with from-scratch runs on **macOS (Apple Silicon)** and **Windows 11 + WSL2 (Ubuntu)**.
 
+![Bookinfo product page - the review stars are rows served from MySQL, over trusted HTTPS](docs/img/bookinfo.png)
+
 ```mermaid
 flowchart LR
     U[browser] -->|443 · TLS| TR[Traefik]
@@ -131,6 +133,8 @@ Terraform (Helm Provider) installs **Argo CD** and creates the **root Applicatio
 | `monitoring` | `monitoring/` | Prometheus, Grafana, Loki, Tempo, Alloy, Beyla | `monitoring` |
 | `cert-manager` | `cert-manager/` | cert-manager + the local CA ClusterIssuer | `cert-manager` |
 
+![Argo CD - the root App of Apps and its four children, all Synced and Healthy](docs/img/argocd.png)
+
 All of them run `automated sync + prune + selfHeal + retry`. **`git push` to the branch = deployment**; manual drift in the cluster is automatically reverted back to git. A new component = one YAML in `argocd/apps/` - monitoring and cert-manager were added exactly that way, with zero Terraform changes.
 
 <details>
@@ -173,6 +177,10 @@ All of them run `automated sync + prune + selfHeal + retry`. **`git push` to the
 
 **Monitoring** - kube-prometheus-stack + Loki + Alloy (log collection for every pod; the successor of the deprecated Promtail) + Tempo + **Beyla: eBPF auto-instrumentation - real distributed traces and RED metrics for bookinfo without changing a single line of the application**. Dashboards ship as code (ConfigMaps): ~30 built-in Kubernetes dashboards, MySQL, **MySQL Backups** (minutes since the last successful backup with thresholds, success/fail counters, durations), **Bookinfo RED** (RPS/p95/5xx), **Bookinfo Traces** (TraceQL), **Logs** (per namespace + a dedicated backup-jobs panel).
 
+![Grafana dashboards, all provisioned as code - Bookinfo RED, Bookinfo Traces and the full Kubernetes set](docs/img/grafana-main.png)
+
+![Live MySQL metrics from the mysqld-exporter sidecar](docs/img/grafana-mysql.png)
+
 **TLS** - mkcert creates a local CA and registers it in the OS/browser trust stores (on WSL - in the Windows store as well), cert-manager uses that CA to automatically issue certificates for all ingresses: `https://*.localhost` on real port 443 with zero warnings.
 
 ---
@@ -194,6 +202,8 @@ kubectl run backup-inspector -n database --rm -it --restart=Never --image=busybo
   --overrides='{"spec":{"containers":[{"name":"i","image":"busybox","command":["ls","-lh","/backups"],"volumeMounts":[{"name":"b","mountPath":"/backups"}]}],"volumes":[{"name":"b","persistentVolumeClaim":{"claimName":"mysql-backups"}}]}}'
 ```
 Expected: up to 12 non-empty `test-YYYYmmdd-HHMMSS.sql` files.
+
+![The custom MySQL Backups dashboard - minutes since the last successful dump, success/fail counters, durations](docs/img/grafana-backups.png)
 
 **Frontend ↔ backend ↔ database + persistence**: https://bookinfo.localhost/productpage shows reviews with red stars (5 and 4 - data from MySQL). Direct proof - change the data in the database and watch the page follow:
 ```sh
