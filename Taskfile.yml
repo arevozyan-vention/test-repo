@@ -14,6 +14,11 @@ tasks:
     cmds:
       - for: [docker, k3d, kubectl, terraform, mkcert]
         cmd: 'command -v {{.ITEM}} >/dev/null 2>&1 || { echo "missing required tool: {{.ITEM}}"; exit 1; }'
+      - |
+        v=$(terraform version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
+        if [ "${v%%.*}" -lt 1 ] || { [ "${v%%.*}" -eq 1 ] && [ "${v#*.}" -lt 9 ]; }; then
+          echo "terraform >= 1.9 required (see terraform/versions.tf), found ${v:-unknown}"; exit 1
+        fi
       - 'docker info >/dev/null 2>&1 || { echo "docker is installed but not running"; exit 1; }'
 
   cluster:

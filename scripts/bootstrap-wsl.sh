@@ -18,6 +18,10 @@ cd "$(dirname "$0")/.."
 have() { command -v "$1" >/dev/null 2>&1; }
 docker_ok() { docker info >/dev/null 2>&1; }
 row() { printf "  %-3s %-12s %s\n" "$1" "$2" "$3"; }
+tf_min_ok() {
+  local v; v=$(terraform version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
+  [ "${v%%.*}" -gt 1 ] 2>/dev/null || { [ "${v%%.*}" -eq 1 ] && [ "${v#*.}" -ge 9 ]; } 2>/dev/null
+}
 
 if ! grep -qi microsoft /proc/version; then
   echo "This script is meant for WSL2. On plain Linux it mostly works, but review it first."
@@ -50,7 +54,10 @@ else
 fi
 
 for t in k3d kubectl terraform task mkcert; do
-  if have "$t"; then
+  if [ "$t" = terraform ] && have terraform && ! tf_min_ok; then
+    row -- terraform "too old, need >= 1.9"
+    INSTALL+=(terraform)
+  elif have "$t"; then
     row ok "$t" "installed"
   else
     row -- "$t" "NOT found"

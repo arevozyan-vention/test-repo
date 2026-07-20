@@ -17,6 +17,10 @@ cd "$(dirname "$0")/.."
 have() { command -v "$1" >/dev/null 2>&1; }
 docker_ok() { docker info >/dev/null 2>&1; }
 row() { printf "  %-3s %-12s %s\n" "$1" "$2" "$3"; }
+tf_min_ok() {
+  local v; v=$(terraform version 2>/dev/null | head -1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
+  [ "${v%%.*}" -gt 1 ] 2>/dev/null || { [ "${v%%.*}" -eq 1 ] && [ "${v#*.}" -ge 9 ]; } 2>/dev/null
+}
 
 INSTALL=()
 NOTES=()
@@ -47,7 +51,10 @@ else
 fi
 
 for t in k3d kubectl terraform task mkcert; do
-  if have "$t"; then
+  if [ "$t" = terraform ] && have terraform && ! tf_min_ok; then
+    row -- terraform "too old, need >= 1.9"
+    INSTALL+=(terraform)
+  elif have "$t"; then
     row ok "$t" "installed"
   else
     row -- "$t" "NOT found"
@@ -93,6 +100,7 @@ for item in "${INSTALL[@]:-}"; do
     # terraform left homebrew core after the busl relicense, tap needs explicit trust since brew 4.6
     terraform)
       brew trust hashicorp/tap >/dev/null 2>&1 || true
+      brew uninstall --ignore-dependencies terraform 2>/dev/null || true
       brew install hashicorp/tap/terraform
       ;;
     "") ;;
