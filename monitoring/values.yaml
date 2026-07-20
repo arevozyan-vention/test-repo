@@ -1,4 +1,6 @@
 kube-prometheus-stack:
+  crds:
+    enabled: false
   grafana:
     fullnameOverride: grafana
     admin:
@@ -88,6 +90,8 @@ loki:
 
 alloy:
   fullnameOverride: alloy
+  crds:
+    create: false
   alloy:
     configMap:
       content: |
