@@ -6,7 +6,8 @@ networkPolicy:
 
 backup:
   schedule: "*/5 * * * *"
-  image: mysql:9.7.1
+  # match the server major (8.4), a newer client tries to dump 9.x-only objects
+  image: mysql:8.4.10
   database: test
   keep: 12
   storage: 1Gi
