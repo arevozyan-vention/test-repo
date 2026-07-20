@@ -12,11 +12,25 @@ spec:
     spec:
       activeDeadlineSeconds: 240
       template:
+        metadata:
+          labels:
+            app: mysql-backup
         spec:
           restartPolicy: OnFailure
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            fsGroup: 999
+            seccompProfile:
+              type: RuntimeDefault
           initContainers:
             - name: wait-for-mysql
               image: {{ .Values.backup.image }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
               command:
                 - /bin/sh
                 - -c
@@ -24,19 +38,23 @@ spec:
           containers:
             - name: mysqldump
               image: {{ .Values.backup.image }}
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
               env:
                 - name: MYSQL_PWD
                   valueFrom:
                     secretKeyRef:
                       name: mysql-credentials
-                      key: mysql-root-password
+                      key: mysql-backup-password
               command:
                 - /bin/sh
                 - -ec
                 - |
                   ts=$(date +%Y%m%d-%H%M%S)
                   tmp=/backups/.tmp-$ts.sql
-                  mysqldump --single-transaction -h mysql -u root {{ .Values.backup.database }} > "$tmp"
+                  mysqldump --single-transaction --no-tablespaces -h mysql -u backup {{ .Values.backup.database }} > "$tmp"
                   mv "$tmp" /backups/{{ .Values.backup.database }}-$ts.sql
                   # rotate only after a successful dump
                   ls -1t /backups/{{ .Values.backup.database }}-*.sql | tail -n +{{ add .Values.backup.keep 1 }} | xargs -r rm -f

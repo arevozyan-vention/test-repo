@@ -37,11 +37,10 @@ tasks:
         cmd: 'kubectl create namespace {{.ITEM}} --dry-run=client -o yaml | kubectl apply -f - >/dev/null'
       - |
         if ! kubectl get secret mysql-credentials -n database >/dev/null 2>&1; then
-          root_pw=$(openssl rand -hex 16)
-          app_pw=$(openssl rand -hex 16)
           kubectl create secret generic mysql-credentials -n database \
-            --from-literal=mysql-root-password="$root_pw" \
-            --from-literal=mysql-password="$app_pw"
+            --from-literal=mysql-root-password="$(openssl rand -hex 16)" \
+            --from-literal=mysql-password="$(openssl rand -hex 16)" \
+            --from-literal=mysql-backup-password="$(openssl rand -hex 16)"
         fi
       - |
         if ! kubectl get secret mysql-credentials -n bookinfo >/dev/null 2>&1; then
