@@ -19,10 +19,18 @@ spec:
         {{- include "bookinfo.labels" $ | nindent 8 }}
     spec:
       serviceAccountName: bookinfo-{{ $name }}
+      {{- with $.Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: {{ $name }}
           image: "{{ $.Values.image.hub }}/{{ $svc.image }}:{{ $svc.tag | default $.Values.image.tag }}"
           imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          {{- with $.Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - containerPort: {{ $svc.port }}
           {{- if or $svc.env $svc.database }}

@@ -1,0 +1,38 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: mysql
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: mysql
+  policyTypes:
+    - Ingress
+  ingress:
+    # ratings app is the only workload allowed to query the database
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.appNamespace }}
+          podSelector:
+            matchLabels:
+              app: ratings
+      ports:
+        - port: 3306
+    # backup job, same namespace
+    - from:
+        - podSelector:
+            matchLabels:
+              app: mysql-backup
+      ports:
+        - port: 3306
+    # prometheus scrapes the mysqld-exporter sidecar
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 9104
+{{- end }}

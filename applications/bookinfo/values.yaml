@@ -3,6 +3,16 @@ image:
   tag: 1.20.3
   pullPolicy: IfNotPresent
 
+# restricted-PSA aligned; bookinfo images already run as uid 1000/1001
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+
 # ratings-v2 wants these, db name is hardcoded to "test" inside the app
 database:
   host: mysql.database.svc.cluster.local
